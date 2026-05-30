@@ -1,0 +1,54 @@
+# Refetch push-notification backend functions
+
+Appwrite Functions that send push notifications for the Refetch app, via the
+Appwrite **Messaging** API. They deploy to the same Appwrite project as the app
+(`63ef1792594ff4f50de2`) and can live here or be merged into the
+[`refetch-io/refetch`](https://github.com/refetch-io/refetch) `functions/`
+directory — they follow the same conventions (Node 18+, ESM, `node-appwrite`).
+
+All database access uses the **TablesDB** service (not the legacy `Databases`
+service), matching the rest of the refetch backend.
+
+| Function | Trigger | Purpose |
+|---|---|---|
+| `notify-reply` | event: comment document `create` | Notify the parent-comment author (reply) or post author (top-level comment). Skips self-replies. |
+| `notify-published` | event: post document `update` | Notify the author when their post becomes `enhanced = true`. |
+| `digest` | CRON (daily) | Push the day's top stories to the `daily-digest` topic. |
+| `subscribe` | execution (user JWT) | Subscribe the caller's push targets to the `daily-digest` / `replies` topics. Called by the app after it registers a target. |
+
+## Transport
+
+Two Appwrite Messaging providers deliver **directly** to each platform:
+
+- **FCM provider** → Android (device registers its FCM token).
+- **APNS provider** → iOS (device registers its APNS token; upload your APNS
+  `.p8` auth key to the Appwrite APNS provider).
+
+`messaging.createPush` targets users (`notify-*`) or a topic (`digest`); Appwrite
+routes each target to the provider matching its platform.
+
+## Shared env (set on every function)
+
+```
+APPWRITE_API_KEY=<server key with messaging.write, documents.read, users.read>
+APPWRITE_DATABASE_ID=688f787e002c78bd299f
+APPWRITE_POSTS_COLLECTION_ID=688f78a20022f61836ff
+APPWRITE_COMMENTS_COLLECTION_ID=68993e6c003af0fe657f
+DIGEST_TOPIC_ID=<messaging topic id>
+REPLIES_TOPIC_ID=<messaging topic id>      # optional
+DIGEST_COUNT=5                              # optional
+```
+
+`APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJECT_ID` are injected
+by the Appwrite runtime.
+
+## Tests
+
+`notify-reply` has unit tests for its pure recipient-resolution logic:
+
+```
+cd backend/functions/notify-reply && node --test
+```
+
+See [`docs/push-notifications-setup.md`](../docs/push-notifications-setup.md) for
+the full provider/Firebase/deploy checklist.

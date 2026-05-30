@@ -1,16 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/appwrite/appwrite_providers.dart';
+import 'core/push/push_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/auth_controller.dart';
 
-/// Root widget: wires the router and themes into [MaterialApp.router].
-class RefetchApp extends ConsumerWidget {
+/// Root widget: wires the router and themes into [MaterialApp.router], and
+/// drives push-notification setup off authentication state.
+class RefetchApp extends ConsumerStatefulWidget {
   const RefetchApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RefetchApp> createState() => _RefetchAppState();
+}
+
+class _RefetchAppState extends ConsumerState<RefetchApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize push handling after first frame so the router exists.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final router = ref.read(routerProvider);
+      ref
+          .read(pushNotificationServiceProvider)
+          .initialize(onOpenThread: (postId) => router.push('/thread/$postId'));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+
+    // Register/unregister the device push target as auth state changes.
+    ref.listen(authControllerProvider, (previous, next) {
+      final wasSignedIn = previous?.value != null;
+      final isSignedIn = next.value != null;
+      final service = ref.read(pushNotificationServiceProvider);
+      if (isSignedIn && !wasSignedIn) {
+        final client = ref.read(appwriteClientProvider);
+        service.onSignedIn().then((_) => subscribePushTopics(client));
+      } else if (!isSignedIn && wasSignedIn) {
+        service.onSignedOut();
+      }
+    });
+
     return MaterialApp.router(
       title: 'Refetch',
       debugShowCheckedModeBanner: false,
