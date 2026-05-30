@@ -32,6 +32,9 @@ class PushNotificationService {
 
   bool _available = false;
   bool _initialized = false;
+  bool _signedIn = false;
+  bool _registering = false;
+  bool _tokenListenerAdded = false;
   void Function(String postId)? _onOpenThread;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -70,6 +73,10 @@ class PushNotificationService {
     // App launched from terminated state by tapping a notification.
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleOpenedFromMessage(initial);
+
+    // If the user was already signed in before push finished initializing,
+    // register their token now (handles the auth-resolves-before-init race).
+    await _registerIfPossible();
   }
 
   /// Requests OS notification permission. Returns true if granted.
@@ -80,12 +87,23 @@ class PushNotificationService {
         settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
-  /// Called when the user signs in: requests permission, fetches the
-  /// platform-appropriate device token, and registers it against the matching
+  /// Called when the user signs in. Registers the device token if push is
+  /// available now, otherwise defers until [initialize] completes.
+  Future<void> onSignedIn() async {
+    _signedIn = true;
+    await _registerIfPossible();
+  }
+
+  /// Registers the platform-appropriate device token against the matching
   /// Appwrite provider — the FCM token → FCM provider on Android, the APNS
   /// token → APNS provider on iOS (each delivers directly to its platform).
-  Future<void> onSignedIn() async {
-    if (!_available) return;
+  ///
+  /// Idempotent: safe to call from both [onSignedIn] and [initialize]; the
+  /// refresh listener is attached at most once.
+  Future<void> _registerIfPossible() async {
+    if (!_available || !_signedIn || _registering) return;
+    _registering = true;
+
     await requestPermission();
     try {
       final token = await _deviceToken();
@@ -97,10 +115,13 @@ class PushNotificationService {
     }
 
     // Only the FCM token refreshes; the APNS token is stable per install.
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android && !_tokenListenerAdded) {
+      _tokenListenerAdded = true;
       _subs.add(
         FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-          _registrar.register(token, providerId: _providerId());
+          if (_signedIn) {
+            _registrar.register(token, providerId: _providerId());
+          }
         }),
       );
     }
@@ -122,6 +143,8 @@ class PushNotificationService {
 
   /// Called on sign-out: removes the Appwrite push target.
   Future<void> onSignedOut() async {
+    _signedIn = false;
+    _registering = false;
     await _registrar.unregister();
   }
 

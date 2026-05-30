@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/site_favicon.dart';
+import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../feed/domain/post.dart';
 import '../../vote/presentation/vote_buttons.dart';
@@ -61,7 +62,7 @@ class ThreadScreen extends ConsumerWidget {
   Future<void> _composeComment(
     BuildContext context,
     WidgetRef ref, {
-    required user,
+    required AppUser? user,
     Comment? parent,
   }) async {
     if (user == null) {

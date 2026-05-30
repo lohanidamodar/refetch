@@ -28,12 +28,13 @@ class ApiClient {
     bool auth = false,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    return _send(() async => _http.get(uri, headers: await _headers(auth)));
+    return _send(auth, () async => _http.get(uri, headers: await _headers(auth)));
   }
 
   Future<dynamic> post(String path, {Object? body, bool auth = true}) async {
     final uri = Uri.parse('$baseUrl$path');
     return _send(
+      auth,
       () async => _http.post(
         uri,
         headers: await _headers(auth),
@@ -44,19 +45,35 @@ class ApiClient {
 
   Future<dynamic> delete(String path, {bool auth = true}) async {
     final uri = Uri.parse('$baseUrl$path');
-    return _send(() async => _http.delete(uri, headers: await _headers(auth)));
+    return _send(
+      auth,
+      () async => _http.delete(uri, headers: await _headers(auth)),
+    );
   }
 
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
-    final http.Response response;
+  Future<dynamic> _send(
+    bool auth,
+    Future<http.Response> Function() request,
+  ) async {
+    var response = await _run(request);
+
+    // A cached JWT can be locally-valid but rejected server-side (revoked,
+    // clock skew). Clear it and retry once with a freshly minted token.
+    if (auth && response.statusCode == 401) {
+      jwtService.clear();
+      response = await _run(request);
+    }
+    return _handle(response);
+  }
+
+  Future<http.Response> _run(Future<http.Response> Function() request) async {
     try {
-      response = await request();
+      return await request();
     } on ApiException {
       rethrow;
     } catch (error) {
       throw ApiException(0, 'Network error: $error');
     }
-    return _handle(response);
   }
 
   Future<Map<String, String>> _headers(bool auth) async {
