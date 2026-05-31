@@ -20,7 +20,7 @@ class FeedScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
-            'refetch',
+            'Refetch',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
           actions: [

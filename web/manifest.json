@@ -1,6 +1,6 @@
 {
-    "name": "refetch",
-    "short_name": "refetch",
+    "name": "Refetch",
+    "short_name": "Refetch",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
