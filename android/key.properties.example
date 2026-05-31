@@ -1,0 +1,14 @@
+# Template for android/key.properties (which is gitignored — never commit the real one).
+#
+# Create your release keystore, then copy this file to `android/key.properties`
+# and fill in the values:
+#
+#   keytool -genkeypair -v -keystore android/app/upload-keystore.jks \
+#     -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# storeFile is resolved relative to the android/app module.
+
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=upload-keystore.jks

@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets / signing — never commit (this repo is open source).
+# Android signing is also covered by android/.gitignore (key.properties, *.jks).
+**/key.properties
+**/*.jks
+**/*.keystore
+# Firebase config files contain project keys — each developer/CI supplies their own.
+**/google-services.json
+**/GoogleService-Info.plist
+.env
+*.env
