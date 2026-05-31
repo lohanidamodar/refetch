@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/network/error_message.dart';
 import '../../../core/push/push_providers.dart';
 import '../../../core/push/push_topic.dart';
 
-/// Per-topic notification toggles. Each switch subscribes/unsubscribes the
+/// Notification controls in the account page: the OS permission state plus a
+/// per-topic enable/disable switch. Each switch subscribes/unsubscribes the
 /// device's push target to the Appwrite Messaging topic (client-side).
-///
-/// Renders nothing until topic ids are configured in AppConfig.
 class NotificationSettings extends ConsumerStatefulWidget {
   const NotificationSettings({super.key});
 
@@ -20,6 +20,7 @@ class NotificationSettings extends ConsumerStatefulWidget {
 class _NotificationSettingsState extends ConsumerState<NotificationSettings> {
   final Map<PushTopic, bool> _enabled = {};
   bool _loading = true;
+  bool _permissionGranted = false;
 
   @override
   void initState() {
@@ -29,19 +30,36 @@ class _NotificationSettingsState extends ConsumerState<NotificationSettings> {
 
   Future<void> _load() async {
     final prefs = ref.read(pushPreferencesProvider);
+    final status = await Permission.notification.status;
     for (final topic in PushTopic.configured) {
       _enabled[topic] = await prefs.isEnabled(topic);
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() {
+        _permissionGranted = status.isGranted;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _grantPermission() async {
+    final granted =
+        await ref.read(pushNotificationServiceProvider).requestPermission();
+    if (!mounted) return;
+    if (!granted) {
+      // Likely permanently denied — send the user to system settings.
+      final status = await Permission.notification.status;
+      if (status.isPermanentlyDenied) await openAppSettings();
+    }
+    final refreshed = await Permission.notification.status;
+    if (mounted) setState(() => _permissionGranted = refreshed.isGranted);
   }
 
   Future<void> _toggle(PushTopic topic, bool value) async {
     setState(() => _enabled[topic] = value);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      if (value) {
-        await ref.read(pushNotificationServiceProvider).requestPermission();
-      }
+      if (value && !_permissionGranted) await _grantPermission();
       await ref.read(topicSubscriptionsProvider).setEnabled(topic, value);
     } catch (error) {
       if (mounted) setState(() => _enabled[topic] = !value);
@@ -57,8 +75,14 @@ class _NotificationSettingsState extends ConsumerState<NotificationSettings> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final topics = PushTopic.configured;
-    if (topics.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,10 +94,20 @@ class _NotificationSettingsState extends ConsumerState<NotificationSettings> {
             style: Theme.of(context).textTheme.titleSmall,
           ),
         ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
+        if (!_permissionGranted)
+          ListTile(
+            leading: const Icon(Icons.notifications_off_outlined),
+            title: const Text('Allow notifications'),
+            subtitle: const Text('Required to receive push notifications'),
+            trailing: FilledButton(
+              onPressed: _grantPermission,
+              child: const Text('Allow'),
+            ),
+          ),
+        if (topics.isEmpty)
+          const ListTile(
+            dense: true,
+            title: Text('No notification topics are configured yet.'),
           )
         else
           for (final topic in topics)
