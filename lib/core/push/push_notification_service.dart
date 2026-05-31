@@ -1,26 +1,27 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:push/push.dart';
 
-import '../../firebase_options.dart';
 import '../config/app_config.dart';
 import 'push_registrar.dart';
 
-/// Top-level background handler. Must be a top-level / static function annotated
-/// with `@pragma('vm:entry-point')`. The OS displays notification-type messages
-/// automatically; we don't need to do work here, but the handler must exist.
+/// Top-level background-message handler. The OS displays notification-type
+/// messages automatically; taps are delivered to [Push.addOnNotificationTap].
 @pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // No-op: data is delivered to onMessageOpenedApp / getInitialMessage on tap.
+Future<void> onBackgroundPushMessage(RemoteMessage message) async {
+  // No work needed in the background isolate.
 }
 
-/// Initializes Firebase + local notifications and bridges incoming messages to
-/// the app. All Firebase access is guarded so the app runs normally with the
-/// placeholder `firebase_options.dart` (push is simply disabled).
+/// Bridges device push notifications into the app using the `push` plugin,
+/// which talks to FCM on Android and **APNS directly on iOS (no Firebase)**.
+///
+/// The device token is registered against the matching Appwrite Messaging
+/// provider — the FCM token → FCM provider on Android, the APNS token → APNS
+/// provider on iOS. All plugin access is guarded so the app runs normally on
+/// platforms where push is unavailable (desktop) or unconfigured.
 class PushNotificationService {
   PushNotificationService(
     this._registrar, {
@@ -34,16 +35,14 @@ class PushNotificationService {
   bool _initialized = false;
   bool _signedIn = false;
   bool _registering = false;
-  bool _tokenListenerAdded = false;
   void Function(String postId)? _onOpenThread;
+  final List<VoidCallback> _unsubscribes = [];
 
-  final List<StreamSubscription<dynamic>> _subs = [];
-
-  /// True once Firebase initialized successfully (real config present).
+  /// True once the push plugin set up successfully on this platform.
   bool get isAvailable => _available;
 
-  /// Sets up Firebase, notification channels, and message listeners.
-  /// [onOpenThread] is called with a post id when the user taps a notification.
+  /// Wires notification channels and message listeners. [onOpenThread] is
+  /// called with a post id when the user taps a notification.
   Future<void> initialize({
     required void Function(String postId) onOpenThread,
   }) async {
@@ -52,39 +51,40 @@ class PushNotificationService {
     _onOpenThread = onOpenThread;
 
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+      await _setUpLocalNotifications();
+
+      _unsubscribes.add(Push.instance.addOnMessage(_showForeground));
+      _unsubscribes.add(Push.instance.addOnBackgroundMessage(onBackgroundPushMessage));
+      _unsubscribes.add(Push.instance.addOnNotificationTap(_handleTapData));
+      _unsubscribes.add(
+        Push.instance.addOnNewToken((token) {
+          if (_signedIn) _registrar.register(token, providerId: _providerId());
+        }),
       );
+
+      // App launched from terminated state by tapping a notification.
+      final launchData =
+          await Push.instance.notificationTapWhichLaunchedAppFromTerminated;
+      if (launchData != null) _handleTapData(launchData);
+
       _available = true;
     } catch (error) {
-      debugPrint('Push disabled (Firebase not configured): $error');
+      debugPrint('Push unavailable on this platform: $error');
       return;
     }
 
-    await _setUpLocalNotifications();
-
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    _subs.add(FirebaseMessaging.onMessage.listen(_showForeground));
-    _subs.add(
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedFromMessage),
-    );
-
-    // App launched from terminated state by tapping a notification.
-    final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (initial != null) _handleOpenedFromMessage(initial);
-
-    // If the user was already signed in before push finished initializing,
-    // register their token now (handles the auth-resolves-before-init race).
+    // Handles the case where the user was already signed in before init.
     await _registerIfPossible();
   }
 
   /// Requests OS notification permission. Returns true if granted.
   Future<bool> requestPermission() async {
     if (!_available) return false;
-    final settings = await FirebaseMessaging.instance.requestPermission();
-    return settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional;
+    try {
+      return await Push.instance.requestPermission();
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Called when the user signs in. Registers the device token if push is
@@ -94,58 +94,37 @@ class PushNotificationService {
     await _registerIfPossible();
   }
 
-  /// Registers the platform-appropriate device token against the matching
-  /// Appwrite provider — the FCM token → FCM provider on Android, the APNS
-  /// token → APNS provider on iOS (each delivers directly to its platform).
-  ///
-  /// Idempotent: safe to call from both [onSignedIn] and [initialize]; the
-  /// refresh listener is attached at most once.
+  /// Called on sign-out: removes the Appwrite push target.
+  Future<void> onSignedOut() async {
+    _signedIn = false;
+    _registering = false;
+    await _registrar.unregister();
+  }
+
+  /// Registers the current device token against the matching Appwrite provider.
+  /// Idempotent and safe to call from both [onSignedIn] and [initialize].
   Future<void> _registerIfPossible() async {
     if (!_available || !_signedIn || _registering) return;
     _registering = true;
 
     await requestPermission();
     try {
-      final token = await _deviceToken();
+      final token = await Push.instance.token;
+      // On iOS the APNS token may not be ready yet; addOnNewToken will register
+      // it once available.
       if (token != null) {
         await _registrar.register(token, providerId: _providerId());
       }
     } catch (error) {
       debugPrint('Could not fetch push token: $error');
     }
-
-    // Only the FCM token refreshes; the APNS token is stable per install.
-    if (defaultTargetPlatform == TargetPlatform.android && !_tokenListenerAdded) {
-      _tokenListenerAdded = true;
-      _subs.add(
-        FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-          if (_signedIn) {
-            _registrar.register(token, providerId: _providerId());
-          }
-        }),
-      );
-    }
   }
 
-  /// FCM registration token on Android, APNS device token on iOS.
-  Future<String?> _deviceToken() {
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return FirebaseMessaging.instance.getAPNSToken();
-    }
-    return FirebaseMessaging.instance.getToken();
-  }
-
+  /// FCM provider on Android, APNS provider on iOS.
   String _providerId() {
     return defaultTargetPlatform == TargetPlatform.iOS
         ? AppConfig.apnsProviderId
         : AppConfig.fcmProviderId;
-  }
-
-  /// Called on sign-out: removes the Appwrite push target.
-  Future<void> onSignedOut() async {
-    _signedIn = false;
-    _registering = false;
-    await _registrar.unregister();
   }
 
   Future<void> _setUpLocalNotifications() async {
@@ -190,12 +169,12 @@ class PushNotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      payload: jsonEncode(message.data),
+      payload: jsonEncode(_stringKeyed(message.data)),
     );
   }
 
-  void _handleOpenedFromMessage(RemoteMessage message) {
-    final postId = message.data['postId'];
+  void _handleTapData(Map<String?, Object?> data) {
+    final postId = data['postId'];
     if (postId is String && postId.isNotEmpty) {
       _onOpenThread?.call(postId);
     }
@@ -213,10 +192,18 @@ class PushNotificationService {
     }
   }
 
+  Map<String, Object?> _stringKeyed(Map<String?, Object?>? data) {
+    if (data == null) return const {};
+    return {
+      for (final entry in data.entries)
+        if (entry.key != null) entry.key!: entry.value,
+    };
+  }
+
   void dispose() {
-    for (final sub in _subs) {
-      sub.cancel();
+    for (final unsubscribe in _unsubscribes) {
+      unsubscribe();
     }
-    _subs.clear();
+    _unsubscribes.clear();
   }
 }
