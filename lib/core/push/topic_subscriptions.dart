@@ -1,4 +1,5 @@
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter/foundation.dart';
 
 import 'push_target_store.dart';
 import 'push_topic.dart';
@@ -6,9 +7,6 @@ import 'push_topic.dart';
 /// Subscribes/unsubscribes the device's push target to Appwrite Messaging topics
 /// using the **client** `Messaging.createSubscriber` / `deleteSubscriber` APIs —
 /// no backend function required.
-///
-/// The subscriber id is the target id, which makes subscribe/unsubscribe
-/// deterministic and idempotent (one target subscribes a topic at most once).
 class TopicSubscriptions {
   TopicSubscriptions(this._messaging, this._targetStore, this._prefs);
 
@@ -24,9 +22,9 @@ class TopicSubscriptions {
     final targetId = await _targetStore.read();
     if (targetId == null) return;
     if (enabled) {
-      await _subscribe(topic.topicId, targetId);
+      await _subscribe(topic, targetId);
     } else {
-      await _unsubscribe(topic.topicId, targetId);
+      await _unsubscribe(topic, targetId);
     }
   }
 
@@ -36,19 +34,28 @@ class TopicSubscriptions {
     for (final topic in PushTopic.configured) {
       try {
         if (await _prefs.isEnabled(topic)) {
-          await _subscribe(topic.topicId, targetId);
+          await _subscribe(topic, targetId);
         }
-      } catch (_) {
-        // Best-effort; the user can re-toggle from settings.
+      } catch (error) {
+        debugPrint('Topic subscribe failed for ${topic.topicId}: $error');
       }
     }
   }
 
-  Future<void> _subscribe(String topicId, String targetId) async {
+  /// Subscriber id, unique per (target, topic). Appwrite subscriber ids are
+  /// project-unique, so the target id alone collides across topics (the second
+  /// topic 409s). The id is deterministic so unsubscribe matches, and stays
+  /// within Appwrite's 36-char id limit.
+  String _subscriberId(String targetId, PushTopic topic) {
+    final id = '${targetId}_${topic.name}';
+    return id.length <= 36 ? id : id.substring(0, 36);
+  }
+
+  Future<void> _subscribe(PushTopic topic, String targetId) async {
     try {
       await _messaging.createSubscriber(
-        topicId: topicId,
-        subscriberId: targetId,
+        topicId: topic.topicId,
+        subscriberId: _subscriberId(targetId, topic),
         targetId: targetId,
       );
     } on AppwriteException catch (e) {
@@ -56,11 +63,11 @@ class TopicSubscriptions {
     }
   }
 
-  Future<void> _unsubscribe(String topicId, String targetId) async {
+  Future<void> _unsubscribe(PushTopic topic, String targetId) async {
     try {
       await _messaging.deleteSubscriber(
-        topicId: topicId,
-        subscriberId: targetId,
+        topicId: topic.topicId,
+        subscriberId: _subscriberId(targetId, topic),
       );
     } on AppwriteException catch (e) {
       if (e.code != 404) rethrow; // 404 = not subscribed

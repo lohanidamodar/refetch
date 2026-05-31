@@ -61,15 +61,31 @@ class _NotificationSettingsState extends ConsumerState<NotificationSettings> {
     try {
       if (value && !_permissionGranted) await _grantPermission();
       await ref.read(topicSubscriptionsProvider).setEnabled(topic, value);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              value
+                  ? 'Subscribed to ${topic.label}'
+                  : 'Unsubscribed from ${topic.label}',
+            ),
+          ),
+        );
     } catch (error) {
       if (mounted) setState(() => _enabled[topic] = !value);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            messageForError(error, fallback: 'Could not update subscription.'),
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              messageForError(
+                error,
+                fallback: 'Could not update subscription.',
+              ),
+            ),
           ),
-        ),
-      );
+        );
     }
   }
 
