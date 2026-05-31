@@ -31,7 +31,7 @@ class AppConfig {
   /// each provider delivers directly to its platform (no FCM→APNS relay). Left
   /// empty until the providers are created in the Appwrite console; when empty,
   /// Appwrite picks a matching provider by the target's platform automatically.
-  static const String fcmProviderId = '';
+  static const String fcmProviderId = '6a1bb5a3001dc2d85de3';
   static const String apnsProviderId = '';
 
   /// Android notification channel used for foreground display.
