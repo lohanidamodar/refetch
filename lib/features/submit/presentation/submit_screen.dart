@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/error_message.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/submit_repository.dart';
 
@@ -49,8 +49,14 @@ class _SubmitScreenState extends ConsumerState<SubmitScreen> {
         const SnackBar(content: Text('Submitted! It will appear once processed.')),
       );
       if (mounted) router.pop();
-    } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            messageForError(error, fallback: 'Could not submit your post.'),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

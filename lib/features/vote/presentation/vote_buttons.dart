@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/error_message.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/vote_state.dart';
 import 'vote_controller.dart';
@@ -91,11 +91,13 @@ class VoteButtons extends ConsumerWidget {
             voteType: direction,
             fallback: fallback,
           );
-    } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (_) {
+    } catch (error) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not register your vote.')),
+        SnackBar(
+          content: Text(
+            messageForError(error, fallback: 'Could not register your vote.'),
+          ),
+        ),
       );
     }
   }

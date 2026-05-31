@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/error_message.dart';
 import 'auth_controller.dart';
 
 /// Email + password sign-up.
@@ -41,14 +41,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     ref.listen(authControllerProvider, (previous, next) {
       if (next.hasError && !next.isLoading) {
-        final error = next.error;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              error is ApiException ? error.message : 'Sign up failed.',
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                messageForError(next.error, fallback: 'Sign up failed.'),
+              ),
             ),
-          ),
-        );
+          );
       } else if (next.value != null) {
         context.go('/');
       }

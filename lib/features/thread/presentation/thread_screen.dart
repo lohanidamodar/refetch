@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/error_message.dart';
 import '../../../core/widgets/site_favicon.dart';
 import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -37,7 +37,7 @@ class ThreadScreen extends ConsumerWidget {
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ThreadError(
-          message: error is ApiException ? error.message : 'Failed to load thread.',
+          message: messageForError(error, fallback: 'Failed to load thread.'),
           onRetry: () => ref.invalidate(threadProvider(postId)),
         ),
         data: (thread) => RefreshIndicator(
@@ -90,8 +90,14 @@ class ThreadScreen extends ConsumerWidget {
             replyId: parent?.id,
           );
       ref.invalidate(threadProvider(postId));
-    } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            messageForError(error, fallback: 'Could not post your comment.'),
+          ),
+        ),
+      );
     }
   }
 }
