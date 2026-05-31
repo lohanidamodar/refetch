@@ -6,7 +6,7 @@ import '../config/app_config.dart';
 /// [AppConfig]; a topic with an empty id is "not configured" and is hidden /
 /// skipped.
 enum PushTopic {
-  digest('Daily digest', 'Top stories once a day'),
+  digest('Weekly digest', 'Top stories once a week'),
   replies('Replies', 'When someone replies to your post or comment');
 
   const PushTopic(this.label, this.description);

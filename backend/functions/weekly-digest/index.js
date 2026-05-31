@@ -1,17 +1,16 @@
 /**
- * digest Appwrite Function
+ * weekly-digest Appwrite Function
  *
- * Trigger: CRON schedule (e.g. `0 13 * * *` for 13:00 UTC daily).
+ * Trigger: CRON schedule, weekly (e.g. `0 13 * * 1` for Mondays at 13:00 UTC).
  *
- * Builds a summary of the top stories from the last 24 hours and pushes it to
- * the `daily-digest` topic. Users are subscribed to that topic by the
- * `subscribe` function when they register a push target.
+ * Builds a summary of the top stories from the last 7 days and pushes it to the
+ * `weekly-digest` topic. Devices subscribe to that topic client-side.
  *
  * Required env:
  *   APPWRITE_FUNCTION_API_ENDPOINT, APPWRITE_FUNCTION_PROJECT_ID  (auto-injected)
  *   APPWRITE_API_KEY
  *   APPWRITE_DATABASE_ID, APPWRITE_POSTS_COLLECTION_ID
- *   DIGEST_TOPIC_ID            (Appwrite Messaging topic id for the daily digest)
+ *   DIGEST_TOPIC_ID            (Appwrite Messaging topic id for the weekly digest)
  *   DIGEST_COUNT               (optional, default 5)
  */
 import { Client, TablesDB, Messaging, Query, ID } from 'node-appwrite';
@@ -35,7 +34,7 @@ export default async ({ res, log, error }) => {
   }
 
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const result = await tablesDB.listRows(databaseId, postsCollectionId, [
       Query.greaterThan('$createdAt', since),
       Query.equal('enhanced', true),
@@ -49,7 +48,7 @@ export default async ({ res, log, error }) => {
       return res.json({ ok: true, sent: false, reason: 'no posts' });
     }
 
-    const title = `Today on Refetch: ${posts.length} top stories`;
+    const title = `This week on Refetch: ${posts.length} top stories`;
     const body = posts.map((p) => `• ${p.title}`).join('\n');
 
     await messaging.createPush(
@@ -62,10 +61,10 @@ export default async ({ res, log, error }) => {
       { type: 'digest', postId: posts[0].$id },
     );
 
-    log(`Sent digest with ${posts.length} stories to topic ${topicId}`);
+    log(`Sent weekly digest with ${posts.length} stories to topic ${topicId}`);
     return res.json({ ok: true, sent: true, count: posts.length });
   } catch (err) {
-    error(`digest failed: ${err}`);
+    error(`weekly-digest failed: ${err}`);
     return res.json({ ok: false, error: String(err) });
   }
 };

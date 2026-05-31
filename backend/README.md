@@ -13,7 +13,7 @@ service), matching the rest of the refetch backend.
 |---|---|---|
 | `notify-reply` | event: comment document `create` | Notify the parent-comment author (reply) or post author (top-level comment). Skips self-replies. |
 | `notify-published` | event: post document `update` | Notify the author when their post becomes `enhanced = true`. |
-| `digest` | CRON (daily) | Push the day's top stories to the `daily-digest` topic. |
+| `weekly-digest` | CRON (weekly) | Push the week's top stories to the `weekly-digest` topic. |
 
 Topic **subscription** is handled client-side by the app via the Appwrite
 `Messaging.createSubscriber` API (toggled per topic in the profile screen), so no
@@ -27,7 +27,7 @@ Two Appwrite Messaging providers deliver **directly** to each platform:
 - **APNS provider** → iOS (device registers its APNS token; upload your APNS
   `.p8` auth key to the Appwrite APNS provider).
 
-`messaging.createPush` targets users (`notify-*`) or a topic (`digest`); Appwrite
+`messaging.createPush` targets users (`notify-*`) or a topic (`weekly-digest`); Appwrite
 routes each target to the provider matching its platform.
 
 ## Shared env (set on every function)
@@ -37,7 +37,7 @@ APPWRITE_API_KEY=<server key with messaging.write, documents.read, users.read>
 APPWRITE_DATABASE_ID=688f787e002c78bd299f
 APPWRITE_POSTS_COLLECTION_ID=688f78a20022f61836ff
 APPWRITE_COMMENTS_COLLECTION_ID=68993e6c003af0fe657f
-DIGEST_TOPIC_ID=<messaging topic id>       # used by digest
+DIGEST_TOPIC_ID=<messaging topic id>       # used by weekly-digest (weekly-digest topic)
 DIGEST_COUNT=5                              # optional
 ```
 

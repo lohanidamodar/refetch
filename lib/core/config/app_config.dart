@@ -23,7 +23,7 @@ class AppConfig {
 
   /// Appwrite Messaging topic ids the device subscribes its push target to
   /// (client-side, via `Messaging.createSubscriber`). Empty ids are skipped.
-  static const String digestTopicId = 'daily-digest';
+  static const String digestTopicId = 'weekly-digest';
   static const String repliesTopicId = 'replies';
 
   /// Appwrite Messaging provider ids. Android registers its FCM token against

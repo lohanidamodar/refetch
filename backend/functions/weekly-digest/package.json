@@ -1,7 +1,7 @@
 {
-  "name": "digest-function",
+  "name": "weekly-digest-function",
   "version": "1.0.0",
-  "description": "Daily push digest of top Refetch stories to the digest topic",
+  "description": "Weekly push digest of top Refetch stories to the weekly-digest topic",
   "main": "index.js",
   "type": "module",
   "scripts": {
