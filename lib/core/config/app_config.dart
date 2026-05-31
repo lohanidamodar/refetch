@@ -21,10 +21,10 @@ class AppConfig {
   /// Brand colour (refetch purple).
   static const int brandColor = 0xFF7C3AED;
 
-  /// Appwrite Function id for the push topic-subscribe function. Left empty
-  /// until the backend functions are deployed; while empty, the app skips the
-  /// best-effort topic subscription. See docs/push-notifications-setup.md.
-  static const String pushSubscribeFunctionId = '';
+  /// Appwrite Messaging topic ids the device subscribes its push target to
+  /// (client-side, via `Messaging.createSubscriber`). Empty ids are skipped.
+  static const String digestTopicId = '';
+  static const String repliesTopicId = '';
 
   /// Appwrite Messaging provider ids. Android registers its FCM token against
   /// the FCM provider; iOS registers its APNS token against the APNS provider —

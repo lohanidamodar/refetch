@@ -14,7 +14,10 @@ service), matching the rest of the refetch backend.
 | `notify-reply` | event: comment document `create` | Notify the parent-comment author (reply) or post author (top-level comment). Skips self-replies. |
 | `notify-published` | event: post document `update` | Notify the author when their post becomes `enhanced = true`. |
 | `digest` | CRON (daily) | Push the day's top stories to the `daily-digest` topic. |
-| `subscribe` | execution (user JWT) | Subscribe the caller's push targets to the `daily-digest` / `replies` topics. Called by the app after it registers a target. |
+
+Topic **subscription** is handled client-side by the app via the Appwrite
+`Messaging.createSubscriber` API (toggled per topic in the profile screen), so no
+`subscribe` function is needed.
 
 ## Transport
 
@@ -34,8 +37,7 @@ APPWRITE_API_KEY=<server key with messaging.write, documents.read, users.read>
 APPWRITE_DATABASE_ID=688f787e002c78bd299f
 APPWRITE_POSTS_COLLECTION_ID=688f78a20022f61836ff
 APPWRITE_COMMENTS_COLLECTION_ID=68993e6c003af0fe657f
-DIGEST_TOPIC_ID=<messaging topic id>
-REPLIES_TOPIC_ID=<messaging topic id>      # optional
+DIGEST_TOPIC_ID=<messaging topic id>       # used by digest
 DIGEST_COUNT=5                              # optional
 ```
 

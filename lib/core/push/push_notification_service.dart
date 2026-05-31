@@ -3,10 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:push/push.dart';
 
 import '../config/app_config.dart';
 import 'push_registrar.dart';
+import 'topic_subscriptions.dart';
 
 /// Top-level background-message handler. The OS displays notification-type
 /// messages automatically; taps are delivered to [Push.addOnNotificationTap].
@@ -24,11 +26,13 @@ Future<void> onBackgroundPushMessage(RemoteMessage message) async {
 /// platforms where push is unavailable (desktop) or unconfigured.
 class PushNotificationService {
   PushNotificationService(
-    this._registrar, {
+    this._registrar,
+    this._topics, {
     FlutterLocalNotificationsPlugin? localNotifications,
   }) : _local = localNotifications ?? FlutterLocalNotificationsPlugin();
 
   final PushRegistrar _registrar;
+  final TopicSubscriptions _topics;
   final FlutterLocalNotificationsPlugin _local;
 
   bool _available = false;
@@ -77,11 +81,12 @@ class PushNotificationService {
     await _registerIfPossible();
   }
 
-  /// Requests OS notification permission. Returns true if granted.
+  /// Requests OS notification permission via permission_handler. Returns true
+  /// if granted (or provisionally granted on iOS).
   Future<bool> requestPermission() async {
-    if (!_available) return false;
     try {
-      return await Push.instance.requestPermission();
+      final status = await Permission.notification.request();
+      return status.isGranted || status.isProvisional || status.isLimited;
     } catch (_) {
       return false;
     }
@@ -113,10 +118,14 @@ class PushNotificationService {
       // On iOS the APNS token may not be ready yet; addOnNewToken will register
       // it once available.
       if (token != null) {
-        await _registrar.register(token, providerId: _providerId());
+        final targetId = await _registrar.register(
+          token,
+          providerId: _providerId(),
+        );
+        if (targetId != null) await _topics.syncOnRegister(targetId);
       }
     } catch (error) {
-      debugPrint('Could not fetch push token: $error');
+      debugPrint('Could not register push token: $error');
     }
   }
 

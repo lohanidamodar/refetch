@@ -2,10 +2,11 @@ import 'package:appwrite/appwrite.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../appwrite/appwrite_providers.dart';
-import '../config/app_config.dart';
 import 'push_notification_service.dart';
 import 'push_registrar.dart';
 import 'push_target_store.dart';
+import 'push_topic.dart';
+import 'topic_subscriptions.dart';
 
 final pushTargetStoreProvider = Provider<PushTargetStore>((ref) {
   return PrefsPushTargetStore();
@@ -18,24 +19,29 @@ final pushRegistrarProvider = Provider<PushRegistrar>((ref) {
   );
 });
 
+final messagingProvider = Provider<Messaging>((ref) {
+  return Messaging(ref.watch(appwriteClientProvider));
+});
+
+final pushPreferencesProvider = Provider<PushPreferences>((ref) {
+  return PushPreferences();
+});
+
+final topicSubscriptionsProvider = Provider<TopicSubscriptions>((ref) {
+  return TopicSubscriptions(
+    ref.watch(messagingProvider),
+    ref.watch(pushTargetStoreProvider),
+    ref.watch(pushPreferencesProvider),
+  );
+});
+
 final pushNotificationServiceProvider = Provider<PushNotificationService>((
   ref,
 ) {
-  final service = PushNotificationService(ref.watch(pushRegistrarProvider));
+  final service = PushNotificationService(
+    ref.watch(pushRegistrarProvider),
+    ref.watch(topicSubscriptionsProvider),
+  );
   ref.onDispose(service.dispose);
   return service;
 });
-
-/// Best-effort: subscribes the signed-in user's push targets to the app's
-/// notification topics by executing the backend `subscribe` function. No-op
-/// until [AppConfig.pushSubscribeFunctionId] is configured.
-Future<void> subscribePushTopics(Client client) async {
-  if (AppConfig.pushSubscribeFunctionId.isEmpty) return;
-  try {
-    await Functions(client).createExecution(
-      functionId: AppConfig.pushSubscribeFunctionId,
-    );
-  } catch (_) {
-    // Subscription is best-effort; the user can still receive direct pushes.
-  }
-}

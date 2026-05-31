@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/appwrite/appwrite_providers.dart';
 import 'core/push/push_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -39,8 +38,8 @@ class _RefetchAppState extends ConsumerState<RefetchApp> {
       final isSignedIn = next.value != null;
       final service = ref.read(pushNotificationServiceProvider);
       if (isSignedIn && !wasSignedIn) {
-        final client = ref.read(appwriteClientProvider);
-        service.onSignedIn().then((_) => subscribePushTopics(client));
+        // Registers the device token and subscribes to enabled topics.
+        service.onSignedIn();
       } else if (!isSignedIn && wasSignedIn) {
         service.onSignedOut();
       }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_controller.dart';
+import '../../settings/presentation/notification_settings.dart';
 
 /// Account screen: shows the signed-in user and a sign-out action, or a
 /// sign-in prompt when signed out.
@@ -31,31 +32,46 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ],
               )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
+            : ListView(
                 children: [
-                  CircleAvatar(
-                    radius: 36,
-                    child: Text(
-                      user.displayName.characters.first.toUpperCase(),
-                      style: theme.textTheme.headlineMedium,
+                  const SizedBox(height: 24),
+                  Center(
+                    child: CircleAvatar(
+                      radius: 36,
+                      child: Text(
+                        user.displayName.characters.first.toUpperCase(),
+                        style: theme.textTheme.headlineMedium,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(user.displayName, style: theme.textTheme.titleLarge),
+                  Center(
+                    child: Text(
+                      user.displayName,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(
-                    user.email,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Center(
+                    child: Text(
+                      user.email,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        ref.read(authControllerProvider.notifier).signOut(),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Sign out'),
+                  const Divider(height: 1),
+                  const NotificationSettings(),
+                  const Divider(height: 1),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          ref.read(authControllerProvider.notifier).signOut(),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Sign out'),
+                    ),
                   ),
                 ],
               ),
