@@ -52,5 +52,5 @@ by the Appwrite runtime.
 cd backend/functions/notify-reply && node --test
 ```
 
-See [`docs/push-notifications-setup.md`](../docs/push-notifications-setup.md) for
-the full provider/Firebase/deploy checklist.
+Set the provider and topic ids in `lib/core/config/app_config.dart` and deploy
+each function to the Refetch Appwrite project with the env and triggers above.

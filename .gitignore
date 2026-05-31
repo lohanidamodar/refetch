@@ -54,3 +54,6 @@ app.*.map.json
 **/GoogleService-Info.plist
 .env
 *.env
+
+# Local-only documentation (design specs, setup notes) — kept out of the repo.
+docs/

@@ -61,7 +61,6 @@ lib/
 backend/
   functions/       # Appwrite Functions that send push (notify-reply,
                    # notify-published, weekly-digest) — deploy to the Refetch project
-docs/              # design specs + push-notifications setup guide
 ```
 
 ## Getting started
@@ -88,8 +87,7 @@ back to debug signing.
 
 ### Push notifications
 
-Push is disabled until configured (the app still runs). To enable it, follow
-[`docs/push-notifications-setup.md`](docs/push-notifications-setup.md): create the
+Push is disabled until configured (the app still runs). To enable it: create the
 Firebase (Android FCM) and Apple (iOS APNS) credentials, add the Appwrite
 Messaging providers and topics, set the provider/topic ids in
 `lib/core/config/app_config.dart`, and deploy the functions in
