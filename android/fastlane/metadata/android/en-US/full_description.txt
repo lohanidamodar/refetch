@@ -1,0 +1,15 @@
+Refetch is a community-driven, open-source alternative to Hacker News — your daily drop of curated tech news, with signal over noise.
+
+Discover the best of technology: AI, startups, open source, security, science, and programming, surfaced from 20+ trusted sources and ranked by a transparent, community-driven algorithm.
+
+FEATURES
+• Curated feed — browse Top, New, and Show stories, plus your own submissions
+• Discussions — threaded comments with replies
+• Voting — upvote and downvote stories and comments
+• Submit — share a link or a "Show" post with the community
+• Notifications — replies to you and an opt-in weekly digest of top stories
+• Fast and clean, built for both mobile and desktop
+
+Refetch is fully open source and privacy-focused, powered by Appwrite. Free from YC control — open, transparent, and community-run.
+
+Learn more at https://refetch.io

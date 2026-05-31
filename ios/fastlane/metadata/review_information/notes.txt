@@ -1,0 +1,5 @@
+Refetch is an open-source tech-news reader (an alternative to Hacker News).
+
+Browsing the feed, opening stories, and reading comments all work WITHOUT an account, so the core experience can be reviewed without signing in.
+
+An account is only required to vote, comment, or submit posts. You can create one in-app via email/password sign-up, so no demo account is provided.
